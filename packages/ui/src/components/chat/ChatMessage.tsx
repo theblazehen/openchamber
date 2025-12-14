@@ -107,6 +107,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
 
     const providers = useConfigStore((state) => state.providers);
     const showReasoningTraces = useUIStore((state) => state.showReasoningTraces);
+    const toolCallExpansion = useUIStore((state) => state.toolCallExpansion);
 
     React.useEffect(() => {
         if (currentSessionId) {
@@ -302,8 +303,31 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         if (isUser) {
             return [];
         }
-        return visibleParts.filter((part) => part.type === 'tool');
+        const filtered = visibleParts.filter((part) => part.type === 'tool');
+        return filtered;
     }, [isUser, visibleParts]);
+
+    const effectiveExpandedTools = React.useMemo(() => {
+        // 'collapsed': Activity and tools start collapsed
+        // 'activity': Activity expanded, tools collapsed  
+        // 'detailed': Activity and tools expanded
+        
+        if (toolCallExpansion === 'collapsed' || toolCallExpansion === 'activity') {
+            // Tools default collapsed: expandedTools contains IDs of tools that ARE expanded
+            return expandedTools;
+        }
+        
+        // 'detailed': Tools default expanded
+        // expandedTools contains IDs of tools that ARE collapsed (inverted)
+        // Return a set of all tool IDs EXCEPT those in expandedTools
+        const effective = new Set<string>();
+        for (const part of toolParts) {
+            if (part.id && !expandedTools.has(part.id)) {
+                effective.add(part.id);
+            }
+        }
+        return effective;
+    }, [toolCallExpansion, expandedTools, toolParts]);
 
     const agentMention = React.useMemo(() => {
         if (!isUser) {
@@ -707,7 +731,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 hasTouchInput={hasTouchInput}
                                 copiedCode={copiedCode}
                                 onCopyCode={handleCopyCode}
-                                expandedTools={expandedTools}
+                                expandedTools={effectiveExpandedTools}
                                 onToggleTool={handleToggleTool}
                                 onShowPopup={handleShowPopup}
                                 streamPhase={streamPhase}

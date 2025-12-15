@@ -4,6 +4,8 @@ import { parseDiffFromFile, type FileContents, type FileDiffMetadata } from '@pi
 
 import { useOptionalThemeSystem } from '@/contexts/useThemeSystem';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
+import { ensureFlexokiThemesRegistered } from '@/lib/shiki/registerFlexokiThemes';
+import { flexokiThemeNames } from '@/lib/shiki/flexokiThemes';
 
 interface PierreDiffViewerProps {
   original: string;
@@ -25,6 +27,14 @@ const WEBKIT_SCROLL_FIX_CSS = `
   }
   [data-code] {
     -webkit-overflow-scrolling: touch;
+  }
+  /* Reduce hunk separator height */
+  [data-separator-content] {
+    height: 24px !important;
+  }
+  [data-expand-button] {
+    height: 24px !important;
+    width: 24px !important;
   }
 `;
 
@@ -50,6 +60,8 @@ export const PierreDiffViewer: React.FC<PierreDiffViewerProps> = ({
 }) => {
   const themeSystem = useOptionalThemeSystem();
   const isDark = themeSystem?.currentTheme?.metadata?.variant === 'dark';
+
+  ensureFlexokiThemesRegistered();
 
   // Cache the last computed diff to avoid recomputing on every render
   const diffCacheRef = useRef<{
@@ -90,8 +102,8 @@ export const PierreDiffViewer: React.FC<PierreDiffViewerProps> = ({
 
   const options = useMemo(() => ({
     theme: {
-      dark: 'vitesse-dark' as const,
-      light: 'vitesse-light' as const,
+      dark: flexokiThemeNames.dark,
+      light: flexokiThemeNames.light,
     },
     themeType: isDark ? ('dark' as const) : ('light' as const),
     diffStyle: renderSideBySide ? ('split' as const) : ('unified' as const),

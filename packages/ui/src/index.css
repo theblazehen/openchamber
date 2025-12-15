@@ -772,6 +772,11 @@ html:not(.dark) .chat-scroll {
   --diffs-gap-block: 0;
 }
 
+/* Desktop: slightly smaller diff code text */
+:root:not(.mobile-pointer) .pierre-diff-wrapper {
+  --diffs-font-size: 0.8125rem;
+}
+
 /* WebKit scroll rendering optimizations */
 /* Note: avoid will-change and contain as they break resize behavior */
 .pierre-diff-wrapper,
@@ -1320,15 +1325,28 @@ html:not(.dark) .chat-scroll {
   font-size: inherit !important;
 }
 
-/* Model/agent controls: collapse labels in narrow containers (mobile + VSCode side panel). */
-@container model-controls (max-width: 15rem) {
+/* Model/agent controls: agent label hides before model label. */
+@container model-controls (max-width: 11rem) {
   .model-controls__agent-label {
     display: none;
   }
 }
 
-@container model-controls (max-width: 12rem) {
+@container model-controls (max-width: 9rem) {
   .model-controls__model-label {
+    display: none;
+  }
+}
+
+/* VS Code side panel: collapse earlier to save horizontal space. */
+@container model-controls (max-width: 9rem) {
+  :root.vscode-runtime .model-controls__agent-label {
+    display: none;
+  }
+}
+
+@container model-controls (max-width: 10rem) {
+  :root.vscode-runtime .model-controls__model-label {
     display: none;
   }
 }
@@ -1355,6 +1373,21 @@ html:not(.dark) .chat-scroll {
   font-family: var(--font-mono);
 }
 
+/* Streamdown code blocks: ensure light/dark Shiki vars work even when Tailwind doesn't scan Streamdown's internal class names. */
+.streamdown-content [data-streamdown="code-block-body"] {
+  background-color: var(--shiki-light-bg, transparent);
+  color: var(--shiki-light, inherit);
+}
+
+.dark .streamdown-content [data-streamdown="code-block-body"] {
+  background-color: var(--shiki-dark-bg, var(--shiki-light-bg, transparent));
+  color: var(--shiki-dark, var(--shiki-light, inherit));
+}
+
+.dark .streamdown-content [data-streamdown="code-block-body"] span[style*="--shiki-dark"] {
+  color: var(--shiki-dark) !important;
+}
+
 /* Fix list styling - override Tailwind reset */
 .streamdown-content ul {
   list-style-type: disc;
@@ -1375,4 +1408,10 @@ html:not(.dark) .chat-scroll {
 /* Reduce code block header height */
 [data-streamdown="code-block-header"] {
   padding: 0.375rem 0.75rem;
+}
+
+/* Disable Streamdown's code block virtualization (content-visibility) to avoid late height changes that break scroll-to-bottom. */
+.streamdown-content [data-streamdown="code-block"] {
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
 }

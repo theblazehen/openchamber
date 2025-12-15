@@ -5,7 +5,84 @@ import type { Part } from '@opencode-ai/sdk';
 import { cn } from '@/lib/utils';
 import { RiFileCopyLine, RiCheckLine, RiDownloadLine } from '@remixicon/react';
 
-const SHIKI_THEMES = ['vitesse-light', 'vitesse-dark'] as const;
+import { flexokiStreamdownThemes } from '@/lib/shiki/flexokiThemes';
+import { isVSCodeRuntime } from '@/lib/desktop';
+
+const withStableStringId = <T extends object>(value: T, id: string): T => {
+  const existingPrimitive = (value as Record<symbol, unknown>)[Symbol.toPrimitive];
+  if (typeof existingPrimitive === 'function') {
+    try {
+      if ((existingPrimitive as () => unknown)() === id) {
+        return value;
+      }
+    } catch {
+      // Ignore and attempt to define below.
+    }
+  }
+
+  try {
+    Object.defineProperty(value, 'toString', {
+      value: () => id,
+      enumerable: false,
+      configurable: true,
+    });
+  } catch {
+    // Ignore if non-configurable or frozen.
+  }
+
+  try {
+    Object.defineProperty(value, Symbol.toPrimitive, {
+      value: () => id,
+      enumerable: false,
+      configurable: true,
+    });
+  } catch {
+    // Ignore if non-configurable or frozen.
+  }
+
+  return value;
+};
+
+const getMarkdownShikiThemes = (): readonly [string | object, string | object] => {
+  if (!isVSCodeRuntime() || typeof window === 'undefined') {
+    return flexokiStreamdownThemes;
+  }
+
+  const provided = window.__OPENCHAMBER_VSCODE_SHIKI_THEMES__;
+  if (provided?.light && provided?.dark) {
+    const light = withStableStringId(
+      { ...(provided.light as Record<string, unknown>) },
+      `vscode-shiki-light:${String((provided.light as { name?: unknown })?.name ?? 'theme')}`,
+    );
+    const dark = withStableStringId(
+      { ...(provided.dark as Record<string, unknown>) },
+      `vscode-shiki-dark:${String((provided.dark as { name?: unknown })?.name ?? 'theme')}`,
+    );
+    return [light, dark] as const;
+  }
+
+  return flexokiStreamdownThemes;
+};
+
+const useMarkdownShikiThemes = (): readonly [string | object, string | object] => {
+  const [themes, setThemes] = React.useState(getMarkdownShikiThemes);
+
+  React.useEffect(() => {
+    if (!isVSCodeRuntime() || typeof window === 'undefined') return;
+
+    const handler = (event: Event) => {
+      // Rely on the canonical `window.__OPENCHAMBER_VSCODE_SHIKI_THEMES__` that the webview updates
+      // before dispatching this event, so we always apply stable cache keys and avoid stale token reuse.
+      void event;
+      setThemes(getMarkdownShikiThemes());
+    };
+
+    window.addEventListener('openchamber:vscode-shiki-themes', handler as EventListener);
+    return () => window.removeEventListener('openchamber:vscode-shiki-themes', handler as EventListener);
+  }, []);
+
+  return themes;
+};
 
 // Table utility functions
 const extractTableData = (tableEl: HTMLTableElement): { headers: string[]; rows: string[][] } => {
@@ -243,6 +320,50 @@ const CodeBlockWrapper: React.FC<CodeBlockWrapperProps> = ({ children, className
   const [copied, setCopied] = React.useState(false);
   const codeRef = React.useRef<HTMLDivElement>(null);
 
+  const normalizedStyle = React.useMemo<React.CSSProperties | undefined>(() => {
+    if (!style) return style;
+
+    const next: React.CSSProperties = { ...style };
+
+    const normalizeDeclarationString = (
+      raw: unknown
+    ): { value?: string; vars: Record<string, string> } => {
+      if (typeof raw !== 'string') return { value: undefined, vars: {} };
+
+      const [valuePart, ...rest] = raw.split(';').map((p) => p.trim()).filter(Boolean);
+      const vars: Record<string, string> = {};
+      for (const decl of rest) {
+        const idx = decl.indexOf(':');
+        if (idx === -1) continue;
+        const prop = decl.slice(0, idx).trim();
+        const value = decl.slice(idx + 1).trim();
+        if (!prop.startsWith('--') || value.length === 0) continue;
+        vars[prop] = value;
+      }
+      return { value: valuePart, vars };
+    };
+
+    const bg = normalizeDeclarationString((style as React.CSSProperties).backgroundColor);
+    if (bg.value) {
+      next.backgroundColor = bg.value;
+      (next as Record<string, string>)['--shiki-light-bg'] = bg.value;
+    }
+    for (const [k, v] of Object.entries(bg.vars)) {
+      (next as Record<string, string>)[k] = v;
+    }
+
+    const fg = normalizeDeclarationString((style as React.CSSProperties).color);
+    if (fg.value) {
+      next.color = fg.value;
+      (next as Record<string, string>)['--shiki-light'] = fg.value;
+    }
+    for (const [k, v] of Object.entries(fg.vars)) {
+      (next as Record<string, string>)[k] = v;
+    }
+
+    return next;
+  }, [style]);
+
   const getCodeContent = (): string => {
     if (!codeRef.current) return '';
     const codeEl = codeRef.current.querySelector('code');
@@ -267,11 +388,7 @@ const CodeBlockWrapper: React.FC<CodeBlockWrapperProps> = ({ children, className
       <pre
         {...props}
         className={cn(className)}
-        style={{
-          ...style,
-          background: 'transparent',
-          backgroundColor: 'transparent',
-        }}
+        style={normalizedStyle}
       >
         {children}
       </pre>
@@ -310,6 +427,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   className,
   isStreaming = false,
 }) => {
+  const shikiThemes = useMarkdownShikiThemes();
   const componentKey = React.useMemo(() => {
     const signature = part?.id ? `part-${part.id}` : `message-${messageId}`;
     return `markdown-${signature}`;
@@ -319,7 +437,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     <div className={cn('break-words', className)}>
       <Streamdown
         mode={isStreaming ? 'streaming' : 'static'}
-        shikiTheme={SHIKI_THEMES}
+        shikiTheme={shikiThemes}
         className="streamdown-content"
         controls={{ code: false, table: false }}
         components={streamdownComponents}
@@ -344,11 +462,12 @@ export const SimpleMarkdownRenderer: React.FC<{
   content: string;
   className?: string;
 }> = ({ content, className }) => {
+  const shikiThemes = useMarkdownShikiThemes();
   return (
     <div className={cn('break-words', className)}>
       <Streamdown
         mode="static"
-        shikiTheme={SHIKI_THEMES}
+        shikiTheme={shikiThemes}
         className="streamdown-content"
         controls={{ code: false, table: false }}
         components={streamdownComponents}

@@ -352,11 +352,12 @@ export const ModelControls: React.FC<ModelControlsProps> = ({ className }) => {
         }
     }, [editToggleDisabled]);
 
-    const buttonHeight = isCompact ? 'h-9' : 'h-8';
-    const editToggleIconClass = isCompact ? 'h-5 w-5' : 'h-4 w-4';
-    const controlIconSize = isCompact ? 'h-5 w-5' : 'h-4 w-4';
+    const sizeVariant: 'mobile' | 'vscode' | 'default' = isMobile ? 'mobile' : isVSCodeRuntime ? 'vscode' : 'default';
+    const buttonHeight = sizeVariant === 'mobile' ? 'h-9' : sizeVariant === 'vscode' ? 'h-6' : 'h-8';
+    const editToggleIconClass = sizeVariant === 'mobile' ? 'h-5 w-5' : sizeVariant === 'vscode' ? 'h-4 w-4' : 'h-4 w-4';
+    const controlIconSize = sizeVariant === 'mobile' ? 'h-5 w-5' : sizeVariant === 'vscode' ? 'h-4 w-4' : 'h-4 w-4';
     const controlTextSize = isCompact ? 'typography-micro' : 'typography-meta';
-    const inlineGapClass = isCompact ? 'gap-x-2' : 'gap-x-3';
+    const inlineGapClass = sizeVariant === 'mobile' ? 'gap-x-2' : sizeVariant === 'vscode' ? 'gap-x-1' : 'gap-x-3';
     const editPermissionMenuLabel = editModeShortLabels[effectiveEditMode];
 
     const renderEditModeIcon = React.useCallback((mode: EditPermissionMode, iconClass = editToggleIconClass) => {
@@ -1601,7 +1602,6 @@ export const ModelControls: React.FC<ModelControlsProps> = ({ className }) => {
                                 <div
                                     className={cn(
                                         'model-controls__model-trigger flex items-center gap-1.5 cursor-pointer hover:opacity-70 min-w-0',
-                                        !isDesktopRuntime && 'flex-1',
                                         buttonHeight
                                     )}
                                 >
@@ -1622,7 +1622,7 @@ export const ModelControls: React.FC<ModelControlsProps> = ({ className }) => {
                                             'model-controls__model-label',
                                             controlTextSize,
                                             'font-medium whitespace-nowrap text-foreground truncate min-w-0',
-                                            isDesktopRuntime ? 'max-w-[260px]' : 'flex-1'
+                                            'max-w-[260px]'
                                         )}
                                     >
                                         {getCurrentModelDisplayName()}
@@ -1944,7 +1944,8 @@ export const ModelControls: React.FC<ModelControlsProps> = ({ className }) => {
                         onTouchEnd={handleLongPressEnd}
                         onTouchCancel={handleLongPressEnd}
                         className={cn(
-                            'model-controls__model-trigger flex items-center gap-1.5 min-w-0 focus:outline-none flex-1',
+                            'model-controls__model-trigger flex items-center gap-1.5 min-w-0 focus:outline-none',
+                            isMobile && 'flex-1',
                             'cursor-pointer hover:opacity-70',
                             buttonHeight
                         )}
@@ -1957,7 +1958,12 @@ export const ModelControls: React.FC<ModelControlsProps> = ({ className }) => {
                         ) : (
                             <RiPencilAiLine className={cn(controlIconSize, 'text-muted-foreground')} />
                         )}
-                        <span className="model-controls__model-label typography-micro font-medium truncate min-w-0 flex-1">
+                        <span
+                            className={cn(
+                                'model-controls__model-label typography-micro font-medium truncate min-w-0',
+                                isMobile ? 'flex-1' : 'max-w-[220px]',
+                            )}
+                        >
                             {getCurrentModelDisplayName()}
                         </span>
                     </button>
@@ -2295,7 +2301,14 @@ export const ModelControls: React.FC<ModelControlsProps> = ({ className }) => {
         );
     };
 
-    const inlineClassName = cn('@container/model-controls flex items-center min-w-0', inlineGapClass, className);
+    const inlineClassName = cn(
+        '@container/model-controls flex items-center min-w-0',
+        inlineGapClass,
+        // Only force full-width + truncation behaviors on true mobile layouts.
+        // VS Code also uses "compact" mode, but should keep its right-aligned inline sizing.
+        isMobile && 'w-full',
+        className,
+    );
 
     return (
         <>
@@ -2303,12 +2316,16 @@ export const ModelControls: React.FC<ModelControlsProps> = ({ className }) => {
                 <div
                     className={cn(
                         'flex items-center min-w-0',
-                        !isCompact ? (isDesktopRuntime ? 'flex-1 min-w-0 justify-end' : 'flex-1 min-w-0') : undefined
+                        isMobile
+                            ? 'flex-1 min-w-0 overflow-hidden'
+                            : (isCompact
+                                ? 'flex-1 min-w-0 justify-end'
+                                : 'flex-1 min-w-0 justify-end')
                     )}
                 >
                     {renderModelSelector()}
                 </div>
-                <div className={cn('flex items-center min-w-0', inlineGapClass)}>
+                <div className={cn('flex items-center min-w-0', inlineGapClass, isMobile && 'flex-shrink-0')}>
                     {renderAgentSelector()}
                 </div>
             </div>

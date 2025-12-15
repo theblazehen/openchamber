@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 
+## [1.1.6] - 2025-12-15
+
+- Optimized diff view layout with smaller fonts and compact hunk separators
+- Improved mobile experience: simplified header, better diff file selector
+- Redesigned password-protected session unlock screen
+
+
+## [1.1.5] - 2025-12-15
+
+- Enhanced file attachment features performance
+- Added fuzzy search feature for file mentioning with @ in chat
+- Optimized input area layout
+
+
+## [1.1.4] - 2025-12-15
+
+- Flexoki themes for Shiki syntax highlighting for consistency with the app color schema.
+- Enchanced VSCode extension theming with editor themes
+- Fixed mobile view model/agent selection
+
+
 ## [1.1.3] - 2025-12-14
 
 - Replaced Monaco diff editor with Pierre/diffs for better performance
